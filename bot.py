@@ -1,4 +1,4 @@
-old code is import telebot
+import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import os
 
