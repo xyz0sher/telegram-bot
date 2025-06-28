@@ -5,6 +5,7 @@ import os
 API_TOKEN = '8141830781:AAEASzNIy-BT09SBcVwOLS5TNWdbUXy05g8'
 bot = telebot.TeleBot(API_TOKEN)
 
+
 user_data = {}
 
 CLASSES = ['10', '11', '12']
