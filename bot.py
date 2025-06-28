@@ -1,87 +1,57 @@
-import telebot
+old code is import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+import os
 
-# Define classes, subjects and years
-CLASSES = ['Class 9', 'Class 10', 'Class 11', 'Class 12']
+API_TOKEN = '8141830781:AAEASzNIy-BT09SBcVwOLS5TNWdbUXy05g8'
+bot = telebot.TeleBot(API_TOKEN)
+
+user_data = {}
+
+CLASSES = ['10', '11', '12']
 SUBJECTS = {
-    'Class 9': ['Maths', 'Science'],
-    'Class 10': ['Maths', 'Science'],
-    'Class 11': ['Physics', 'Chemistry'],
-    'Class 12': ['Physics', 'Chemistry']
+    '10': ['Maths', 'Science'],
+    '11': ['Physics', 'Chemistry', 'Maths', 'Biology', 'Accountancy', 'Business', 'Economics', 'English', 'Computer'],
+    '12': ['Physics', 'Chemistry', 'Maths', 'Biology', 'Accountancy', 'Business', 'Economics', 'English', 'Computer Science']
 }
 YEARS = ['2025', '2024', '2023', '2022', '2021']
 
-# Store user choices
-user_data = {}
+@bot.message_handler(commands=['start'])
+def start(message):
+    user_data[message.chat.id] = {}
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    for cls in CLASSES:
+        markup.add(KeyboardButton(cls))
+    bot.send_message(message.chat.id, "📚 Welcome! Select your class:", reply_markup=markup)
 
-# Start command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_data[user_id] = {}  # reset progress
-    reply = ReplyKeyboardMarkup([[c] for c in CLASSES], one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text("📚 Welcome! Please choose your class:", reply_markup=reply)
+@bot.message_handler(func=lambda message: message.text in CLASSES)
+def choose_subject(message):
+    user_data[message.chat.id]['class'] = message.text
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    for subject in SUBJECTS[message.text]:
+        markup.add(KeyboardButton(subject))
+    bot.send_message(message.chat.id, f"📘 You selected Class {message.text}. Now choose a subject:", reply_markup=markup)
 
-# Handle all messages (step-by-step selection)
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    text = update.message.text.strip()
+@bot.message_handler(func=lambda message: any(message.text in SUBJECTS[cls] for cls in CLASSES))
+def choose_year(message):
+    user_data[message.chat.id]['subject'] = message.text
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    for year in YEARS:
+        markup.add(KeyboardButton(year))
+    bot.send_message(message.chat.id, f"📅 Select year of question paper:", reply_markup=markup)
 
-    if user_id not in user_data:
-        user_data[user_id] = {}
+@bot.message_handler(func=lambda message: message.text in YEARS)
+def send_paper(message):
+    chat_id = message.chat.id
+    year = message.text
+    cls = user_data[chat_id].get('class')
+    subject = user_data[chat_id].get('subject')
 
-    data = user_data[user_id]
-    print(f"User data so far: {data}")  # Debug
+    file_path = f"papers/class{cls}/{subject.lower().replace(' ', '')}/{year}.pdf"
 
-    # Step 1: Choose class
-    if 'class' not in data:
-        if text in CLASSES:
-            data['class'] = text
-            subjects = SUBJECTS[text]
-            reply = ReplyKeyboardMarkup([[s] for s in subjects], one_time_keyboard=True, resize_keyboard=True)
-            await update.message.reply_text("✅ Great! Now select a subject:", reply_markup=reply)
-        else:
-            await update.message.reply_text("❌ Please select a valid class.")
-
-    # Step 2: Choose subject
-    elif 'subject' not in data:
-        if text in SUBJECTS[data['class']]:
-            data['subject'] = text
-            reply = ReplyKeyboardMarkup([[y] for y in YEARS], one_time_keyboard=True, resize_keyboard=True)
-            await update.message.reply_text("📅 Choose the year of the paper:", reply_markup=reply)
-        else:
-            await update.message.reply_text("❌ Please choose a valid subject.")
-
-    # Step 3: Choose year
-    elif 'year' not in data:
-        if text in YEARS:
-            data['year'] = text
-            await send_question_paper(update, context, data)
-            user_data[user_id] = {}  # Reset after sending
-        else:
-            await update.message.reply_text("❌ Please choose a valid year.")
-
-# Send PDF file if exists
-async def send_question_paper(update: Update, context: ContextTypes.DEFAULT_TYPE, data):
-    class_folder = data['class'].lower().replace(" ", "")
-    subject_folder = data['subject'].lower()
-    year_file = f"{data['year']}.pdf"
-    path = f"papers/{class_folder}/{subject_folder}/{year_file}"
-
-    if os.path.exists(path):
-        await update.message.reply_document(document=open(path, 'rb'))
+    if os.path.exists(file_path):
+        with open(file_path, 'rb') as f:
+            bot.send_document(chat_id, f, caption=f"📄 {subject} - {year} Question Paper")
     else:
-        await update.message.reply_text("⚠️ Sorry, that paper is not available.")
+        bot.send_message(chat_id, "❌ Paper not found. Please check if it's uploaded.")
 
-# Main function
-def main():
-    print("✅ Bot is starting...")
-    app = Application.builder().token("7893556939:AAGV3RKJeS7Llzrkma6rYBW_Ubb-Dk-jaYo").build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+bot.polling()
