@@ -2,7 +2,7 @@ import telebot
 from flask import Flask, request
 import os
 
-API_TOKEN = '8141830781:AAEASzNIy-BT09SBcVwOLS5TNWdbUXy05g8'
+API_TOKEN = '8141830781:AAFAIyBQ38nFqGjDelRz_hHBfacJlh_Qojk'
 bot = telebot.TeleBot(API_TOKEN)
 app = Flask(__name__)
 
@@ -73,5 +73,5 @@ def home():
 # Set webhook when app starts
 if __name__ == "__main__":
     bot.remove_webhook()
-    bot.set_webhook(url="https://telegram-bot-rq96.onrender.com/8141830781:AAEASzNIy-BT09SBcVwOLS5TNWdbUXy05g8")
+    bot.set_webhook(url="https://telegram-bot-rq96.onrender.com/8141830781:AAFAIyBQ38nFqGjDelRz_hHBfacJlh_Qojk")
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
