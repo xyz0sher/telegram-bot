@@ -2,11 +2,11 @@ import telebot
 from flask import Flask, request
 import os
 
-API_TOKEN = '8141830781:AAFNN8MDt0DTemaXiFKPgVNOrF7VRrpv5uk'
+API_TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(API_TOKEN)
 app = Flask(__name__)
 
-# ==== Bot logic same as before ====
+# ================= BOT DATA =================
 
 user_data = {}
 
@@ -18,60 +18,62 @@ SUBJECTS = {
 }
 YEARS = ['2025', '2024', '2023', '2022', '2021']
 
+# ================= BOT LOGIC =================
+
 @bot.message_handler(commands=['start'])
 def start(message):
     user_data[message.chat.id] = {}
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     for cls in CLASSES:
-        markup.add(telebot.types.KeyboardButton(cls))
+        markup.add(cls)
     bot.send_message(message.chat.id, "📚 Welcome! Select your class:", reply_markup=markup)
 
-@bot.message_handler(func=lambda message: message.text in CLASSES)
+@bot.message_handler(func=lambda m: m.text in CLASSES)
 def choose_subject(message):
     user_data[message.chat.id]['class'] = message.text
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for subject in SUBJECTS[message.text]:
-        markup.add(telebot.types.KeyboardButton(subject))
-    bot.send_message(message.chat.id, f"📘 You selected Class {message.text}. Now choose a subject:", reply_markup=markup)
+    for sub in SUBJECTS[message.text]:
+        markup.add(sub)
+    bot.send_message(message.chat.id, "📘 Choose subject:", reply_markup=markup)
 
-@bot.message_handler(func=lambda message: any(message.text in SUBJECTS[cls] for cls in CLASSES))
+@bot.message_handler(func=lambda m: any(m.text in SUBJECTS[c] for c in SUBJECTS))
 def choose_year(message):
     user_data[message.chat.id]['subject'] = message.text
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     for year in YEARS:
-        markup.add(telebot.types.KeyboardButton(year))
-    bot.send_message(message.chat.id, f"📅 Select year of question paper:", reply_markup=markup)
+        markup.add(year)
+    bot.send_message(message.chat.id, "📅 Choose year:", reply_markup=markup)
 
-@bot.message_handler(func=lambda message: message.text in YEARS)
+@bot.message_handler(func=lambda m: m.text in YEARS)
 def send_paper(message):
     chat_id = message.chat.id
+    cls = user_data[chat_id]['class']
+    subject = user_data[chat_id]['subject']
     year = message.text
-    cls = user_data[chat_id].get('class')
-    subject = user_data[chat_id].get('subject')
 
-    file_path = f"papers/class{cls}/{subject.lower().replace(' ', '')}/{year}.pdf"
+    path = f"papers/class{cls}/{subject.lower().replace(' ', '')}/{year}.pdf"
 
-    if os.path.exists(file_path):
-        with open(file_path, 'rb') as f:
-            bot.send_document(chat_id, f, caption=f"📄 {subject} - {year} Question Paper")
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            bot.send_document(chat_id, f)
     else:
-        bot.send_message(chat_id, "❌ Paper not found. Please check if it's uploaded.")
+        bot.send_message(chat_id, "❌ Paper not available.")
 
-# ==== Webhook code ====
+# ================= WEBHOOK =================
 
-@app.route(f"/{API_TOKEN}", methods=['POST'])
+@app.route(f"/{API_TOKEN}", methods=["POST"])
 def webhook():
-    json_string = request.get_data().decode('utf-8')
-    update = telebot.types.Update.de_json(json_string)
+    update = telebot.types.Update.de_json(
+        request.stream.read().decode("utf-8")
+    )
     bot.process_new_updates([update])
-    return 'ok', 200
+    return "OK", 200
 
-@app.route('/')
+@app.route("/")
 def home():
-    return 'Bot is alive!'
+    return "Bot is running!"
 
-# Set webhook when app starts
+# ================= RUN =================
+
 if __name__ == "__main__":
-    bot.remove_webhook()
-    bot.set_webhook(url="https://telegram-bot-rq96.onrender.com/8141830781:AAFAIyBQ38nFqGjDelRz_hHBfacJlh_Qojk")
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
